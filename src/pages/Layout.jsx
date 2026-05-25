@@ -5,6 +5,8 @@ import NewListing from './seller/NewListing'
 import SpecialRequests from './seller/SpecialRequests'
 import Earnings from './seller/Earnings'
 import Settlements from './seller/Settlements'
+import KYC from './seller/KYC'
+import Notifications from './seller/Notifications'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 
@@ -55,6 +57,8 @@ export default function Layout() {
     case 'requests': return <SpecialRequests />
     case 'earnings': return <Earnings />
     case 'settlements': return <Settlements />
+    case 'kyc': return <KYC />
+    case 'notifications': return <Notifications />
     default:
       return (
         <div style={s.placeholder}>
