@@ -1,5 +1,9 @@
 import axios from 'axios'
 
+// ⚠️ DEV MODE — Backend bypass. Auto-logout disable.
+// Live karne ke baad isko false kar dena.
+const DEV_MODE = true
+
 // Backend ka address — local computer pe port 8000 par chal raha hai
 const API = axios.create({
   baseURL: 'http://localhost:8000/api',
@@ -20,10 +24,11 @@ API.interceptors.request.use(
 )
 
 // Agar token expire ho jaye (401 error), automatically logout karo
+// DEV mode mein yeh skip — fake token hai isliye 401 aayega hi
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (!DEV_MODE && error.response?.status === 401) {
       localStorage.removeItem('seller_token')
       localStorage.removeItem('seller_user')
       window.location.href = '/login'

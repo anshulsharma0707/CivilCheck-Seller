@@ -1,37 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login, seller } = useAuth()
 
-  const [step, setStep] = useState('phone')
-  const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // ⚠️ DEV MODE — Backend bypass. OTP "12345" se login ho jayega.
+  // ⚠️ DEV MODE — Direct OTP login. Sirf "12345" se login hoga.
   // Live karne ke baad yeh hata dena.
   const DEV_MODE = true
 
-  const handleSendOtp = async () => {
-    if (!/^[6-9]\d{9}$/.test(phone)) {
-      setError('Valid 10-digit phone number daalo')
-      return
+  // Jaise hi seller state set ho jaye, dashboard pe bhejo
+  // (App.jsx wala "seller ? Navigate to dashboard" bhi same kaam karega,
+  //  but yeh explicit navigation zyada reliable hai)
+  useEffect(() => {
+    if (seller) {
+      navigate('/dashboard', { replace: true })
     }
-    setLoading(true)
-    setError('')
+  }, [seller, navigate])
 
-    // DEV mode — fake delay, no API call
-    setTimeout(() => {
-      setStep('otp')
-      setLoading(false)
-    }, 500)
-  }
-
-  const handleVerifyOtp = async () => {
+  const handleVerifyOtp = () => {
     if (otp.length < 4) {
       setError('OTP daalo')
       return
@@ -44,13 +36,13 @@ export default function Login() {
       if (otp === '12345') {
         const fakeToken = 'dev_token_' + Date.now()
         const fakeSeller = {
-          phone: phone,
+          phone: '9999999999',
           name: 'Priya Sharma',
           profession: 'Property Lawyer, Jaipur',
           badge: 'SILVER',
         }
         login(fakeToken, fakeSeller)
-        navigate('/dashboard')
+        // navigate yahan NAHI — useEffect handle karega jab seller set hoga
       } else {
         setError('Galat OTP — dev mode mein "12345" daalo')
         setLoading(false)
@@ -86,71 +78,34 @@ export default function Login() {
 
         {/* Heading */}
         <div style={{ marginBottom: 24 }}>
-          <div style={s.heading}>
-            {step === 'phone' ? 'Welcome back' : 'Verify OTP'}
-          </div>
-          <div style={s.subHeading}>
-            {step === 'phone'
-              ? 'Apna registered phone number daalo'
-              : `OTP daalo +91 ${phone} ke liye`}
-          </div>
+          <div style={s.heading}>Welcome back</div>
+          <div style={s.subHeading}>OTP daalo aur login karo</div>
         </div>
 
         {error && <div style={s.errorBox}>⚠️ {error}</div>}
 
-        {/* STEP 1: Phone */}
-        {step === 'phone' && (
-          <>
-            <div style={s.field}>
-              <label style={s.label}>Phone Number</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <div style={s.prefix}>+91</div>
-                <input
-                  type="tel"
-                  placeholder="98765 43210"
-                  value={phone}
-                  onChange={e => { setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); setError('') }}
-                  onKeyDown={e => e.key === 'Enter' && handleSendOtp()}
-                  style={{ ...s.input, flex: 1 }}
-                  autoFocus
-                />
-              </div>
-            </div>
+        {/* OTP only */}
+        <div style={s.field}>
+          <label style={s.label}>Enter OTP</label>
+          <input
+            type="text"
+            placeholder="12345"
+            value={otp}
+            onChange={e => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setError('') }}
+            onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
+            style={{ ...s.input, textAlign: 'center', letterSpacing: 8, fontSize: 18, width: '100%' }}
+            autoFocus
+          />
+        </div>
 
-            <button className="login-btn" onClick={handleSendOtp} disabled={loading} style={{ ...s.btn, opacity: loading ? 0.7 : 1 }}>
-              {loading ? 'Sending...' : 'Send OTP →'}
-            </button>
-          </>
-        )}
-
-        {/* STEP 2: OTP */}
-        {step === 'otp' && (
-          <>
-            <div style={s.field}>
-              <label style={s.label}>Enter OTP</label>
-              <input
-                type="text"
-                placeholder="12345"
-                value={otp}
-                onChange={e => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setError('') }}
-                onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
-                style={{ ...s.input, textAlign: 'center', letterSpacing: 8, fontSize: 18 }}
-                autoFocus
-              />
-            </div>
-
-            <button className="login-btn" onClick={handleVerifyOtp} disabled={loading} style={{ ...s.btn, opacity: loading ? 0.7 : 1 }}>
-              {loading ? 'Verifying...' : 'Verify & Login →'}
-            </button>
-
-            <div style={{ textAlign: 'center', marginTop: 14 }}>
-              <button onClick={() => { setStep('phone'); setOtp(''); setError('') }}
-                style={s.backLink}>
-                ← Phone change karo
-              </button>
-            </div>
-          </>
-        )}
+        <button
+          className="login-btn"
+          onClick={handleVerifyOtp}
+          disabled={loading}
+          style={{ ...s.btn, opacity: loading ? 0.7 : 1 }}
+        >
+          {loading ? 'Verifying...' : 'Verify & Login →'}
+        </button>
 
         <div style={s.footer}>
           Zytexa Technology LLP · Seller Login
@@ -218,14 +173,6 @@ const s = {
   },
   field: { marginBottom: 18 },
   label: { display: 'block', fontSize: 12, color: '#7b8299', marginBottom: 7, fontWeight: 600 },
-  prefix: {
-    background: '#171b23',
-    border: '1px solid #2a3045',
-    borderRadius: 9,
-    padding: '11px 14px',
-    color: '#e6e9f0',
-    fontSize: 14,
-  },
   input: {
     background: '#171b23',
     border: '1px solid #2a3045',
@@ -245,12 +192,6 @@ const s = {
     color: '#0a0c10',
     fontSize: 15, fontWeight: 700,
     marginTop: 4,
-    fontFamily: "'Sora', sans-serif",
-  },
-  backLink: {
-    background: 'none', border: 'none',
-    color: '#7b8299', fontSize: 13,
-    cursor: 'pointer',
     fontFamily: "'Sora', sans-serif",
   },
   footer: {
