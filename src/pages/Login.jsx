@@ -1,53 +1,46 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { sellerVerifyOtp } from '../api/auth.api'
 
 export default function Login() {
   const navigate = useNavigate()
   const { login, seller } = useAuth()
 
-  const [otp, setOtp] = useState('')
+  const [phone, setPhone] = useState('')
+  const [otp, setOtp]     = useState('')
+  const [step, setStep]   = useState('phone') // 'phone' | 'otp'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // ⚠️ DEV MODE — Direct OTP login. Sirf "12345" se login hoga.
-  // Live karne ke baad yeh hata dena.
-  const DEV_MODE = true
-
-  // Jaise hi seller state set ho jaye, dashboard pe bhejo
-  // (App.jsx wala "seller ? Navigate to dashboard" bhi same kaam karega,
-  //  but yeh explicit navigation zyada reliable hai)
   useEffect(() => {
     if (seller) {
       navigate('/dashboard', { replace: true })
     }
   }, [seller, navigate])
 
-  const handleVerifyOtp = () => {
-    if (otp.length < 4) {
-      setError('OTP daalo')
-      return
-    }
+  const handleSendOtp = () => {
+    if (phone.length < 10) { setError('Valid phone number daalo'); return }
+    setError('')
+    setStep('otp')
+  }
+
+  const handleVerifyOtp = async () => {
+    if (otp.length < 4) { setError('OTP daalo'); return }
     setLoading(true)
     setError('')
-
-    // DEV mode — sirf "12345" accept karo
-    setTimeout(() => {
-      if (otp === '12345') {
-        const fakeToken = 'dev_token_' + Date.now()
-        const fakeSeller = {
-          phone: '9999999999',
-          name: 'Priya Sharma',
-          profession: 'Property Lawyer, Jaipur',
-          badge: 'SILVER',
-        }
-        login(fakeToken, fakeSeller)
-        // navigate yahan NAHI — useEffect handle karega jab seller set hoga
+    try {
+      const data = await sellerVerifyOtp(phone, otp)
+      if (data.success) {
+        login(data.token, data.seller)
       } else {
-        setError('Galat OTP — dev mode mein "12345" daalo')
-        setLoading(false)
+        setError(data.message || 'Login failed')
       }
-    }, 500)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Login nahi hua — dobara try karo')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -69,43 +62,62 @@ export default function Login() {
           </div>
         </div>
 
-        {/* DEV banner */}
-        {DEV_MODE && (
-          <div style={s.devBanner}>
-            🔧 DEV MODE — OTP: <strong>12345</strong>
-          </div>
-        )}
-
         {/* Heading */}
         <div style={{ marginBottom: 24 }}>
           <div style={s.heading}>Welcome back</div>
-          <div style={s.subHeading}>OTP daalo aur login karo</div>
+          <div style={s.subHeading}>
+            {step === 'phone' ? 'Apna phone number daalo' : `OTP bheja gaya +91 ${phone}`}
+          </div>
         </div>
 
         {error && <div style={s.errorBox}>⚠️ {error}</div>}
 
-        {/* OTP only */}
-        <div style={s.field}>
-          <label style={s.label}>Enter OTP</label>
-          <input
-            type="text"
-            placeholder="12345"
-            value={otp}
-            onChange={e => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setError('') }}
-            onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
-            style={{ ...s.input, textAlign: 'center', letterSpacing: 8, fontSize: 18, width: '100%' }}
-            autoFocus
-          />
-        </div>
-
-        <button
-          className="login-btn"
-          onClick={handleVerifyOtp}
-          disabled={loading}
-          style={{ ...s.btn, opacity: loading ? 0.7 : 1 }}
-        >
-          {loading ? 'Verifying...' : 'Verify & Login →'}
-        </button>
+        {step === 'phone' ? (
+          <>
+            <div style={s.field}>
+              <label style={s.label}>Phone Number</label>
+              <div style={{ display: 'flex', alignItems: 'center', background: '#171b23', border: '1px solid #2a3045', borderRadius: 9, overflow: 'hidden' }}>
+                <span style={{ padding: '11px 14px', color: '#7b8299', fontSize: 14, borderRight: '1px solid #2a3045' }}>+91</span>
+                <input
+                  type="tel"
+                  placeholder="9999999999"
+                  value={phone}
+                  onChange={e => { setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); setError('') }}
+                  onKeyDown={e => e.key === 'Enter' && handleSendOtp()}
+                  style={{ ...s.input, border: 'none', borderRadius: 0, flex: 1 }}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <button className="login-btn" onClick={handleSendOtp}
+              style={{ ...s.btn }}>
+              Send OTP →
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={s.field}>
+              <label style={s.label}>Enter OTP</label>
+              <input
+                type="text"
+                placeholder="123456"
+                value={otp}
+                onChange={e => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setError('') }}
+                onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
+                style={{ ...s.input, textAlign: 'center', letterSpacing: 8, fontSize: 18, width: '100%' }}
+                autoFocus
+              />
+            </div>
+            <button className="login-btn" onClick={handleVerifyOtp} disabled={loading}
+              style={{ ...s.btn, opacity: loading ? 0.7 : 1 }}>
+              {loading ? 'Verifying...' : 'Verify & Login →'}
+            </button>
+            <button onClick={() => { setStep('phone'); setOtp(''); setError('') }}
+              style={{ width: '100%', marginTop: 10, background: 'none', border: 'none', color: '#7b8299', fontSize: 13, cursor: 'pointer' }}>
+              ← Phone change karo
+            </button>
+          </>
+        )}
 
         <div style={s.footer}>
           Zytexa Technology LLP · Seller Login

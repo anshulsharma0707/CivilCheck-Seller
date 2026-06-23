@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import DashboardHome from './seller/DashboardHome'
 import MyListings from './seller/MyListings'
 import NewListing from './seller/NewListing'
@@ -9,23 +9,7 @@ import KYC from './seller/KYC'
 import Notifications from './seller/Notifications'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-
-// Sidebar items
-const NAV = [
-  { section: 'Main' },
-  { id: 'dashboard',     icon: '📊', label: 'Dashboard' },
-  { id: 'listings',      icon: '📋', label: 'My Listings',     badge: 12 },
-  { id: 'new',           icon: '➕', label: 'New Listing' },
-  { id: 'requests',      icon: '📦', label: 'Special Requests', badge: 2, badgeRed: true },
-
-  { section: 'Finance' },
-  { id: 'earnings',      icon: '💰', label: 'Earnings' },
-  { id: 'settlements',   icon: '🏦', label: 'Settlements' },
-
-  { section: 'Account' },
-  { id: 'kyc',           icon: '🎯', label: 'Profile & KYC' },
-  { id: 'notifications', icon: '🔔', label: 'Notifications',    badge: 3 },
-]
+import { getMyListings, getAvailableRequests } from '../api/seller.api'
 
 const PAGE_TITLES = {
   dashboard: 'Dashboard',
@@ -38,11 +22,40 @@ const PAGE_TITLES = {
   notifications: 'Notifications',
 }
 
+const NAV_BASE = [
+  { section: 'Main' },
+  { id: 'dashboard',     icon: '📊', label: 'Dashboard' },
+  { id: 'listings',      icon: '📋', label: 'My Listings' },
+  { id: 'new',           icon: '➕', label: 'New Listing' },
+  { id: 'requests',      icon: '📦', label: 'Special Requests', badgeRed: true },
+  { section: 'Finance' },
+  { id: 'earnings',      icon: '💰', label: 'Earnings' },
+  { id: 'settlements',   icon: '🏦', label: 'Settlements' },
+  { section: 'Account' },
+  { id: 'kyc',           icon: '🎯', label: 'Profile & KYC' },
+  { id: 'notifications', icon: '🔔', label: 'Notifications' },
+]
+
 export default function Layout() {
   const { seller, logoutSeller } = useAuth()
   const navigate = useNavigate()
   const [tab, setTab] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [listingsCount, setListingsCount] = useState(null)
+  const [requestsCount, setRequestsCount] = useState(null)
+
+  // Real counts fetch karo sidebar ke liye
+  useEffect(() => {
+    getMyListings().then(data => setListingsCount(data?.total ?? data?.listings?.length ?? 0)).catch(() => {})
+    getAvailableRequests().then(data => setRequestsCount(data?.requests?.filter(r => r.status === 'PENDING')?.length ?? 0)).catch(() => {})
+  }, [])
+
+  // NAV mein real counts inject karo
+  const NAV = NAV_BASE.map(n => {
+    if (n.id === 'listings')  return { ...n, badge: listingsCount }
+    if (n.id === 'requests')  return { ...n, badge: requestsCount }
+    return n
+  })
 
   const handleLogout = () => {
     logoutSeller()
@@ -143,7 +156,7 @@ export default function Layout() {
                 }}>
                 <span style={{ fontSize: 15 }}>{n.icon}</span>
                 <span style={{ flex: 1 }}>{n.label}</span>
-                {n.badge && (
+                {n.badge != null && n.badge > 0 && (
                   <span style={{
                     ...s.sbBadge,
                     background: n.badgeRed ? 'rgba(240,68,68,0.15)' : 'rgba(79,142,247,0.15)',
